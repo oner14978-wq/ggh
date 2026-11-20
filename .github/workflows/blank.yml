@@ -6,9 +6,9 @@ on:
       runner:
         description: "Tipo de runner"
         type: choice
-        default: windows-latest
+        default: windows-11-arm
         options:
-          - windows-latest
+          - windows-11-arm
           - windows-11-arm
       minutos:
         description: "Minutos ligado (máx. 340)"
