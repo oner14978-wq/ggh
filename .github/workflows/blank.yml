@@ -132,6 +132,12 @@ jobs:
               echo "::error::Secret $V não configurado."; exit 1
             fi
           done
+          UUID='^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$'
+          for V in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            if ! [[ "${!V}" =~ $UUID ]]; then
+              echo "::error::$V não tem formato de UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx). Confira o secret."; exit 1
+            fi
+          done
           az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" -o none
           az account set --subscription "$AZURE_SUBSCRIPTION_ID"
           echo "Login no Azure OK."
@@ -206,7 +212,7 @@ jobs:
           az vm create \
             -g "$RG" -n "$VM" -l "$LOC" \
             --size "$SIZE" \
-            --image "MicrosoftWindowsDesktop:windows-11:win11-24h2-pro:latest" \
+            --image "MicrosoftWindowsDesktop:windows-11:win11-25h2-pro:latest" \
             --license-type Windows_Client \
             --admin-username "$ADMIN_USER" \
             --admin-password "$ADMIN_PASS" \
@@ -386,4 +392,3 @@ jobs:
           else
             echo "::warning::O grupo $RG não existe."
           fi
-          
