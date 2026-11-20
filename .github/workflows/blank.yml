@@ -47,7 +47,6 @@ jobs:
         run: |
           $chars = (48..57) + (65..90) + (97..122)
           $senha = 'Aa1-' + (-join ($chars | Get-Random -Count 16 | ForEach-Object { [char]$_ }))
-          echo "::add-mask::$senha"
           $sec = ConvertTo-SecureString $senha -AsPlainText -Force
           New-LocalUser -Name 'Rafael' -Password $sec -FullName 'Rafael' -PasswordNeverExpires -AccountNeverExpires | Out-Null
           Add-LocalGroupMember -Group 'Administrators' -Member 'Rafael'
@@ -56,7 +55,8 @@ jobs:
           Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
-          "RAFAEL_PASS=$senha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "WIN_USER=Rafael" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "WIN_PASS=$senha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Instalar Tailscale e conectar
         shell: pwsh
@@ -75,21 +75,33 @@ jobs:
             if ($LASTEXITCODE -eq 0) { break }
             Start-Sleep -Seconds 10
           }
-          $ip = (& $ts ip -4 | Select-Object -First 1)
-          if (-not $ip) { Write-Error 'Tailscale não conectou.'; exit 1 }
+
+      - name: IP
+        shell: pwsh
+        run: |
+          $ts = 'C:\Program Files\Tailscale\tailscale.exe'
+          $ip = $null
+          for ($i = 1; $i -le 10 -and -not $ip; $i++) {
+            $ip = (& $ts ip -4 | Select-Object -First 1)
+            if (-not $ip) { Start-Sleep -Seconds 5 }
+          }
+          if (-not $ip) { Write-Error 'Não foi possível obter o IP do Tailscale.'; exit 1 }
+          Write-Host "IP do Tailscale: $ip"
           "TS_IP=$ip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Mostrar acesso
         shell: pwsh
         run: |
-          Write-Host "IP Tailscale: $env:TS_IP"
-          Write-Host "Usuário: Rafael"
-          Write-Host "Senha: $env:RAFAEL_PASS"
+          Write-Host "=========================================="
+          Write-Host "Conta do Windows: $env:WIN_USER"
+          Write-Host "Senha da conta do Windows: $env:WIN_PASS"
+          Write-Host "Código de acesso (IP Tailscale): $env:TS_IP"
+          Write-Host "=========================================="
           @(
             "## ✅ PC remoto no ar",
-            "- IP Tailscale: ``$env:TS_IP``",
-            "- Usuário: **Rafael**",
-            "- Senha: ``$env:RAFAEL_PASS``"
+            "- Conta do Windows: **$env:WIN_USER**",
+            "- Senha da conta do Windows: ``$env:WIN_PASS``",
+            "- Código de acesso (IP Tailscale): ``$env:TS_IP``"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
       - name: Manter o PC ligado
