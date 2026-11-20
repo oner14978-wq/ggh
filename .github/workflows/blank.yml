@@ -91,7 +91,6 @@ jobs:
       - name: Validar entradas e secrets
         shell: bash
         env:
-          S_AZURE: ${{ secrets.AZURE_CREDENTIALS }}
           S_TS: ${{ secrets.TAILSCALE_AUTH_KEY }}
           CONFIRMAR: ${{ inputs.confirmar_destruir }}
         run: |
@@ -102,15 +101,6 @@ jobs:
           fi
           if ! [[ "$DISK_GB" =~ ^[0-9]+$ ]] || [ "$DISK_GB" -lt 127 ] || [ "$DISK_GB" -gt 4095 ]; then
             echo "::error::disco_gb deve ser um número entre 127 e 4095."; ERROS=1
-          fi
-          if [ -z "$S_AZURE" ]; then
-            echo "::error::Secret AZURE_CREDENTIALS não configurado."; ERROS=1
-          else
-            case "$S_AZURE" in
-              tskey-*) echo "::error::AZURE_CREDENTIALS contém uma chave do Tailscale. Ele precisa ser o JSON do Service Principal do Azure."; ERROS=1 ;;
-              "{"*) ;;
-              *) echo "::error::AZURE_CREDENTIALS deve ser um JSON começando com { (saída de az ad sp create-for-rbac --sdk-auth)."; ERROS=1 ;;
-            esac
           fi
           if [ "$ACAO" = "criar" ]; then
             if [ -z "$S_TS" ]; then
