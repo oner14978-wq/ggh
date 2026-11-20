@@ -1,7 +1,7 @@
 name: PC Gamer na Nuvem (Azure + Tailscale)
 
 # Secrets necessarios:
-#   AZURE_CREDENTIALS  -> JSON do Service Principal (az ad sp create-for-rbac --sdk-auth)
+#   AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID -> dados do Service Principal do Azure
 #   TAILSCALE_AUTH_KEY -> chave tskey-auth-... (so para 'criar')
 # As senhas (administrador inicial e usuario Rafael) sao geradas
 # automaticamente e mostradas no log e no resumo da execucao.
@@ -119,9 +119,22 @@ jobs:
           echo "Validação OK."
 
       - name: Login no Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          set -euo pipefail
+          for V in AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            if [ -z "${!V}" ]; then
+              echo "::error::Secret $V não configurado."; exit 1
+            fi
+          done
+          az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" -o none
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+          echo "Login no Azure OK."
 
       - name: Gerar senhas
         if: inputs.acao == 'criar'
