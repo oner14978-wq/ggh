@@ -48,9 +48,10 @@ jobs:
           $chars = (48..57) + (65..90) + (97..122)
           $senha = 'Aa1-' + (-join ($chars | Get-Random -Count 16 | ForEach-Object { [char]$_ }))
           echo "::add-mask::$senha"
-          net user Rafael $senha /add | Out-Null
-          net localgroup Administrators Rafael /add | Out-Null
-          net localgroup "Remote Desktop Users" Rafael /add | Out-Null
+          $sec = ConvertTo-SecureString $senha -AsPlainText -Force
+          New-LocalUser -Name 'Rafael' -Password $sec -FullName 'Rafael' -PasswordNeverExpires -AccountNeverExpires | Out-Null
+          Add-LocalGroupMember -Group 'Administrators' -Member 'Rafael'
+          Add-LocalGroupMember -Group 'Remote Desktop Users' -Member 'Rafael'
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
           Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue
           Set-Service -Name TermService -StartupType Automatic
