@@ -45,8 +45,7 @@ jobs:
       - name: Criar usuário Rafael e habilitar RDP
         shell: pwsh
         run: |
-          $chars = (48..57) + (65..90) + (97..122)
-          $senha = 'Aa1-' + (-join ($chars | Get-Random -Count 16 | ForEach-Object { [char]$_ }))
+          $senha = 'Gamer2026Abc'
           $sec = ConvertTo-SecureString $senha -AsPlainText -Force
           New-LocalUser -Name 'Rafael' -Password $sec -FullName 'Rafael' -PasswordNeverExpires -AccountNeverExpires | Out-Null
           Add-LocalGroupMember -Group 'Administrators' -Member 'Rafael'
@@ -55,8 +54,6 @@ jobs:
           Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
-          "WIN_USER=Rafael" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "WIN_PASS=$senha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Instalar Tailscale e conectar
         shell: pwsh
@@ -93,14 +90,14 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=========================================="
-          Write-Host "Conta do Windows: $env:WIN_USER"
-          Write-Host "Senha da conta do Windows: $env:WIN_PASS"
-          Write-Host "Código de acesso (IP Tailscale): $env:TS_IP"
+          Write-Host "Conta do Windows: Rafael"
+          Write-Host "Senha da conta do Windows: Gamer2026Abc"
+          Write-Host "Codigo de acesso (IP Tailscale): $env:TS_IP"
           Write-Host "=========================================="
           @(
             "## ✅ PC remoto no ar",
-            "- Conta do Windows: **$env:WIN_USER**",
-            "- Senha da conta do Windows: ``$env:WIN_PASS``",
+            "- Conta do Windows: **Rafael**",
+            "- Senha da conta do Windows: ``Gamer2026Abc``",
             "- Código de acesso (IP Tailscale): ``$env:TS_IP``"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
