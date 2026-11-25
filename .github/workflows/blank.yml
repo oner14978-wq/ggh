@@ -8,9 +8,9 @@ on:
         type: choice
         default: windows-11-arm
         options:
-          - windows-11-2024
-          - windows-2024
-          - windows-2024
+          - windows-11-arm
+          - windows-2022
+          - windows-latest
       minutos:
         description: "Minutos ligado (máx. 340)"
         type: string
@@ -45,17 +45,8 @@ jobs:
 
       - name: Criar usuário Rafael e habilitar RDP
         shell: pwsh
-        env:
-          RDP_SECRET: ${{ secrets.RDP_PASSWORD }}
         run: |
-          # Usa o secret RDP_PASSWORD se existir; senão gera uma senha aleatória
-          if ($env:RDP_SECRET) {
-            $senha = $env:RDP_SECRET
-          } else {
-            $chars = (48..57) + (65..90) + (97..122)
-            $senha = 'Aa1' + (-join ($chars | Get-Random -Count 14 | ForEach-Object { [char]$_ }))
-          }
-          echo "::add-mask::$senha"
+          $senha = 'Gamer2026Abc'
           "RDP_PASS=$senha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
           $sec = ConvertTo-SecureString $senha -AsPlainText -Force
@@ -118,8 +109,11 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=========================================="
-          Write-Host "PC no ar. Veja usuário, senha e IP no Summary da execução."
+          Write-Host "Conta do Windows: Rafael"
+          Write-Host "Senha: $env:RDP_PASS"
+          Write-Host "Codigo de acesso (IP Tailscale): $env:TS_IP"
           Write-Host "=========================================="
+          Write-Host "::notice title=Acesso ao PC::Conta: Rafael | Senha: $env:RDP_PASS | IP: $env:TS_IP"
           @(
             "## ✅ PC remoto no ar",
             "- Conta do Windows: **Rafael**",
