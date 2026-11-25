@@ -6,11 +6,11 @@ on:
       runner:
         description: "Tipo de runner"
         type: choice
-        default: windows-11-arm
+        default: windows-11-2022
         options:
-          - windows-11-arm
+          - windows-11-2022
           - windows-2022
-          - windows-latest
+          - windows-2022
       minutos:
         description: "Minutos ligado (máx. 340)"
         type: string
