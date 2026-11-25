@@ -9,7 +9,8 @@ on:
         default: windows-11-arm
         options:
           - windows-11-arm
-          - windows-11-arm
+          - windows-2024
+          - windows-latest
       minutos:
         description: "Minutos ligado (máx. 340)"
         type: string
@@ -32,8 +33,8 @@ jobs:
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          if (-not $env:TS_KEY -or -not $env:TS_KEY.StartsWith('tskey-auth-')) {
-            Write-Error 'Secret TAILSCALE_AUTH_KEY ausente ou inválido.'
+          if (-not $env:TS_KEY -or -not $env:TS_KEY.StartsWith('tskey-')) {
+            Write-Error 'Secret TAILSCALE_AUTH_KEY ausente ou inválido (deve começar com tskey-).'
             exit 1
           }
           $m = 0
@@ -44,16 +45,31 @@ jobs:
 
       - name: Criar usuário Rafael e habilitar RDP
         shell: pwsh
+        env:
+          RDP_SECRET: ${{ secrets.RDP_PASSWORD }}
         run: |
-          $senha = 'Gamer2026Abc'
+          # Usa o secret RDP_PASSWORD se existir; senão gera uma senha aleatória
+          if ($env:RDP_SECRET) {
+            $senha = $env:RDP_SECRET
+          } else {
+            $chars = (48..57) + (65..90) + (97..122)
+            $senha = 'Aa1' + (-join ($chars | Get-Random -Count 14 | ForEach-Object { [char]$_ }))
+          }
+          echo "::add-mask::$senha"
+          "RDP_PASS=$senha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
           $sec = ConvertTo-SecureString $senha -AsPlainText -Force
-          New-LocalUser -Name 'Rafael' -Password $sec -FullName 'Rafael' -PasswordNeverExpires -AccountNeverExpires | Out-Null
-          Add-LocalGroupMember -Group 'Administrators' -Member 'Rafael'
-          Add-LocalGroupMember -Group 'Remote Desktop Users' -Member 'Rafael'
+          if (Get-LocalUser -Name 'Rafael' -ErrorAction SilentlyContinue) {
+            Set-LocalUser -Name 'Rafael' -Password $sec
+          } else {
+            New-LocalUser -Name 'Rafael' -Password $sec -FullName 'Rafael' -PasswordNeverExpires -AccountNeverExpires | Out-Null
+          }
+          Add-LocalGroupMember -Group 'Administrators' -Member 'Rafael' -ErrorAction SilentlyContinue
+          Add-LocalGroupMember -Group 'Remote Desktop Users' -Member 'Rafael' -ErrorAction SilentlyContinue
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
           Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue
           Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
+          Start-Service -Name TermService -ErrorAction SilentlyContinue
 
       - name: Instalar Tailscale e conectar
         shell: pwsh
@@ -61,17 +77,29 @@ jobs:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
           echo "::add-mask::$env:TS_KEY"
-          $arch = if ('${{ inputs.runner }}' -eq 'windows-11-arm') { 'arm64' } else { 'amd64' }
+          $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
+          Write-Host "Arquitetura: $arch"
           $msi = Join-Path $env:TEMP 'tailscale.msi'
           Invoke-WebRequest -UseBasicParsing -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-$arch.msi" -OutFile $msi
-          Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /quiet /norestart" -Wait
-          Start-Sleep -Seconds 15
+          $p = Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /quiet /norestart" -Wait -PassThru
+          Write-Host "msiexec exit code: $($p.ExitCode)"
+
           $ts = 'C:\Program Files\Tailscale\tailscale.exe'
-          for ($i = 1; $i -le 5; $i++) {
-            & $ts up --auth-key="$env:TS_KEY" --hostname='${{ inputs.nome_pc }}' --accept-routes
-            if ($LASTEXITCODE -eq 0) { break }
-            Start-Sleep -Seconds 10
+          if (-not (Test-Path $ts)) { Write-Error 'Tailscale não foi instalado.'; exit 1 }
+
+          Set-Service -Name Tailscale -StartupType Automatic
+          Start-Service -Name Tailscale -ErrorAction SilentlyContinue
+          (Get-Service Tailscale).WaitForStatus('Running', '00:00:30')
+          Start-Sleep -Seconds 10
+
+          $ok = $false
+          for ($i = 1; $i -le 5 -and -not $ok; $i++) {
+            Write-Host "Tentativa $i"
+            & $ts up --auth-key="$env:TS_KEY" --hostname='${{ inputs.nome_pc }}' --accept-routes --unattended --reset --timeout=60s 2>&1 | Write-Host
+            if ($LASTEXITCODE -eq 0) { $ok = $true } else { Start-Sleep -Seconds 10 }
           }
+          & $ts status 2>&1 | Write-Host
+          if (-not $ok) { Write-Error 'tailscale up falhou (veja o log acima).'; exit 1 }
 
       - name: IP
         shell: pwsh
@@ -79,7 +107,7 @@ jobs:
           $ts = 'C:\Program Files\Tailscale\tailscale.exe'
           $ip = $null
           for ($i = 1; $i -le 10 -and -not $ip; $i++) {
-            $ip = (& $ts ip -4 | Select-Object -First 1)
+            $ip = (& $ts ip -4 2>$null | Select-Object -First 1)
             if (-not $ip) { Start-Sleep -Seconds 5 }
           }
           if (-not $ip) { Write-Error 'Não foi possível obter o IP do Tailscale.'; exit 1 }
@@ -90,15 +118,13 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=========================================="
-          Write-Host "Conta do Windows: Rafael"
-          Write-Host "Senha da conta do Windows: Gamer2026Abc"
-          Write-Host "Codigo de acesso (IP Tailscale): $env:TS_IP"
+          Write-Host "PC no ar. Veja usuário, senha e IP no Summary da execução."
           Write-Host "=========================================="
           @(
             "## ✅ PC remoto no ar",
             "- Conta do Windows: **Rafael**",
-            "- Senha da conta do Windows: ``Gamer2026Abc``",
-            "- Código de acesso (IP Tailscale): ``$env:TS_IP``"
+            "- Senha: ``$env:RDP_PASS``",
+            "- IP Tailscale (use no Remote Desktop): ``$env:TS_IP``"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
       - name: Manter o PC ligado
@@ -107,3 +133,4 @@ jobs:
           $fim = (Get-Date).AddMinutes([int]'${{ inputs.minutos }}')
           while ((Get-Date) -lt $fim) { Start-Sleep -Seconds 60 }
           Write-Host 'Tempo esgotado. Encerrando.'
+          
