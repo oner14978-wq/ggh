@@ -6,11 +6,11 @@ on:
       runner:
         description: "Tipo de runner"
         type: choice
-        default: windows-11-2022
+        default: Windows Server 2022
         options:
-          - windows-11-2022
+          - Windows Server 2022
           - windows-2022
-          - windows-2022
+          - windows-latest
       minutos:
         description: "Minutos ligado (máx. 340)"
         type: string
@@ -104,6 +104,33 @@ jobs:
           if (-not $ip) { Write-Error 'Não foi possível obter o IP do Tailscale.'; exit 1 }
           Write-Host "IP do Tailscale: $ip"
           "TS_IP=$ip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Visual estilo Windows 7
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          # 1) Menu Iniciar estilo Windows 7 (Open-Shell)
+          $exe = Join-Path $env:TEMP 'OpenShellSetup.exe'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/Open-Shell/Open-Shell-Menu/releases/download/v4.4.191/OpenShellSetup_4_4_191.exe' -OutFile $exe
+          Start-Process $exe -ArgumentList '/qn','ADDLOCAL=StartMenu' -Wait
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v OpenShellMenu /t REG_SZ /d "`"C:\Program Files\Open-Shell\StartMenu.exe`"" /f | Out-Null
+
+          # 2) Ajustes no perfil padrão (valem para o Rafael no primeiro login)
+          reg load HKU\DefaultUser "C:\Users\Default\NTUSER.DAT" | Out-Null
+          $adv = 'HKU\DefaultUser\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+          reg add $adv /v TaskbarAl /t REG_DWORD /d 0 /f | Out-Null          # ícones à esquerda (Win 11)
+          reg add $adv /v ShowTaskViewButton /t REG_DWORD /d 0 /f | Out-Null # sem botão de tarefas
+          reg add $adv /v TaskbarDa /t REG_DWORD /d 0 /f | Out-Null          # sem widgets
+          reg add $adv /v TaskbarMn /t REG_DWORD /d 0 /f | Out-Null          # sem chat
+          reg add 'HKU\DefaultUser\Software\Microsoft\Windows\CurrentVersion\Search' /v SearchboxTaskbarMode /t REG_DWORD /d 0 /f | Out-Null
+          reg add 'HKU\DefaultUser\Control Panel\Desktop' /v WallPaper /t REG_SZ /d "" /f | Out-Null
+          reg add 'HKU\DefaultUser\Control Panel\Colors' /v Background /t REG_SZ /d "30 80 140" /f | Out-Null  # azul clássico
+          reg add 'HKU\DefaultUser\Software\OpenShell\StartMenu\Settings' /v MenuStyle /t REG_SZ /d Win7 /f | Out-Null
+          reg add 'HKU\DefaultUser\Software\OpenShell\StartMenu\Settings' /v Skin2 /t REG_SZ /d "Windows Aero" /f | Out-Null
+          [gc]::Collect()
+          Start-Sleep -Seconds 2
+          reg unload HKU\DefaultUser | Out-Null
+          Write-Host 'Visual estilo Windows 7 aplicado (aparece no primeiro login do Rafael).'
 
       - name: Mostrar acesso
         shell: pwsh
