@@ -6,7 +6,7 @@ on:
       runner:
         description: "Tipo de runner"
         type: choice
-        default: windows-2022
+        default: windows-2025
         options:
           - windows-11-arm
           - windows-2025
