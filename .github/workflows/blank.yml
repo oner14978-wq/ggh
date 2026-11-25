@@ -8,9 +8,9 @@ on:
         type: choice
         default: windows-11-arm
         options:
-          - windows-11-arm
+          - windows-11-2024
           - windows-2024
-          - windows-latest
+          - windows-2024
       minutos:
         description: "Minutos ligado (máx. 340)"
         type: string
